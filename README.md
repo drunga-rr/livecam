@@ -78,13 +78,13 @@ O site e o painel do transmissor exigem login. Os espectadores continuam acessan
 Configure estas variáveis em **Render → seu Web Service → Environment**:
 
 - `ADMIN_USERNAME`: usuário escolhido por você.
-- `ADMIN_PASSWORD_HASH`: hash scrypt da senha (não coloque a senha em texto puro).
+- `ADMIN_PASSWORD`: senha administrativa em variável secreta do Render. O servidor deriva o hash scrypt ao iniciar. Alternativamente, use `ADMIN_PASSWORD_HASH` se preferir cadastrar um hash pronto; não configure as duas.
 - `SESSION_SECRET`: segredo aleatório com pelo menos 32 caracteres.
 
 Gere o hash localmente com Node.js (substitua `SUA_SENHA_FORTE` no comando, sem enviar a senha para o GitHub):
 
 ```bash
-node -e "const {scryptSync,randomBytes}=require('node:crypto'); const salt=randomBytes(16).toString('hex'); console.log('scrypt$'+salt+'$'+scryptSync('SUA_SENHA_FORTE',salt,64).toString('hex'))"
+Se usar `ADMIN_PASSWORD`, não é necessário gerar hash no computador.
 ```
 
 Gere o segredo da sessão com:
