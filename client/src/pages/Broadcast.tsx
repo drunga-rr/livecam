@@ -225,6 +225,15 @@ export default function Broadcast() {
     }
   };
 
+  const logout = async () => {
+    if (roomRef.current && (status === "live" || status === "connecting")) {
+      setError("Encerre a transmissão antes de sair.");
+      return;
+    }
+    await fetch("/api/admin/logout", { method: "POST" }).catch(() => undefined);
+    window.location.assign("/");
+  };
+
   const copyLink = async () => {
     if (!shareUrl) return;
     await navigator.clipboard?.writeText(shareUrl);
@@ -250,7 +259,7 @@ export default function Broadcast() {
 
   return (
     <main className="app-shell">
-      <header className="app-topbar"><Link href="/" className="wordmark"><span className="wordmark-live">LIVE</span><span className="wordmark-slash">/</span>CAM</Link><div className="topbar-context"><span className="context-kicker">painel do transmissor</span><span>sem login · sem gravação</span></div></header>
+      <header className="app-topbar"><Link href="/" className="wordmark"><span className="wordmark-live">LIVE</span><span className="wordmark-slash">/</span>CAM</Link><div className="topbar-context"><span className="context-kicker">painel do transmissor</span><span>área administrativa · sem gravação</span><button onClick={logout} style={{ marginLeft: 16, border: "1px solid #d0d5dd", borderRadius: 8, padding: "7px 11px", background: "transparent", cursor: "pointer" }}>Sair</button></div></header>
       <div className="broadcast-layout">
         <section className="broadcast-main">
           <div className="page-intro"><div><p className="eyebrow"><Radio size={14} /> canal público</p><h1>Coloque sua câmera no ar.</h1></div><span className={`status-chip status-${status}`}><span className="status-chip-dot" /> {copy.label}</span></div>
