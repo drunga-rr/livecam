@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";\nimport type { ReactNode } from "react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useLocation } from "wouter";
 
 export default function AdminGate({ children }: { children: ReactNode }) {
