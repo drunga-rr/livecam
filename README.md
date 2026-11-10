@@ -69,3 +69,28 @@ O LiveCam solicita credenciais temporárias ao Turnix pelo backend. Configure `T
 O endpoint `/api/live/ice-servers` exige `roomId` e `participantId` de uma pessoa que já entrou na sala. O servidor envia o IP público do visitante ao Turnix para seleção regional e devolve somente os dados ICE temporários ao navegador.
 
 Se o Turnix responder HTTP 429, a franquia/limite de uso foi atingida. Se responder 401, confira o token configurado no Render.
+
+
+## Acesso administrativo (Render)
+
+O site e o painel do transmissor exigem login. Os espectadores continuam acessando `/watch/ID_DA_SALA` sem conta ou senha. A API de criação de salas exige sessão administrativa; as rotas de sinalização e visualização permanecem públicas para participantes admitidos na sala.
+
+Configure estas variáveis em **Render → seu Web Service → Environment**:
+
+- `ADMIN_USERNAME`: usuário escolhido por você.
+- `ADMIN_PASSWORD_HASH`: hash scrypt da senha (não coloque a senha em texto puro).
+- `SESSION_SECRET`: segredo aleatório com pelo menos 32 caracteres.
+
+Gere o hash localmente com Node.js (substitua `SUA_SENHA_FORTE` no comando, sem enviar a senha para o GitHub):
+
+```bash
+node -e "const {scryptSync,randomBytes}=require('node:crypto'); const salt=randomBytes(16).toString('hex'); console.log('scrypt$'+salt+'$'+scryptSync('SUA_SENHA_FORTE',salt,64).toString('hex'))"
+```
+
+Gere o segredo da sessão com:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
+```
+
+Cole somente os valores gerados nos campos correspondentes do Render e faça novo deploy. Não adicione essas credenciais ao repositório GitHub. O cookie de sessão é HttpOnly, Secure em produção e expira em sete dias. Após oito tentativas inválidas no mesmo IP, o login fica bloqueado por 15 minutos.
