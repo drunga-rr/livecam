@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import { serveStatic, setupVite } from "./vite";
+import { adminLogin, adminLogout, adminStatus, requireAdmin } from "../adminAuth";
 import {
   createRoom,
   getEvents,
@@ -21,8 +22,11 @@ async function startServer() {
   app.use(express.json({ limit: "512kb" }));
 
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+  app.get("/api/admin/me", adminStatus);
+  app.post("/api/admin/login", adminLogin);
+  app.post("/api/admin/logout", adminLogout);
   app.get("/api/live/ice-servers", getIceServers);
-  app.post("/api/live/rooms", createRoom);
+  app.post("/api/live/rooms", requireAdmin, createRoom);
   app.post("/api/live/rooms/:roomId/join", joinRoom);
   app.post("/api/live/rooms/:roomId/ready", setReady);
   app.post("/api/live/rooms/:roomId/signal", signalRoom);

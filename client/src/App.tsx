@@ -5,6 +5,7 @@ import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Broadcast from "./pages/Broadcast";
+import AdminGate from "./components/AdminGate";
 import Home from "./pages/Home";
 import Watch from "./pages/Watch";
 
@@ -12,7 +13,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/broadcast" component={Broadcast} />
+      <Route path="/broadcast"><AdminGate><Broadcast /></AdminGate></Route>
       <Route path="/watch/:roomId" component={Watch} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
