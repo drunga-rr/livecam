@@ -1,9 +1,15 @@
-import { createHmac, timingSafeEqual, scryptSync } from "node:crypto";
+import { createHmac, timingSafeEqual, scryptSync, randomBytes } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
 
 const COOKIE_NAME = "livecam_admin";
 const SESSION_SECONDS = 60 * 60 * 24 * 7;
 const attempts = new Map<string, { count: number; windowStart: number; blockedUntil: number }>();
+// When ADMIN_PASSWORD is supplied, derive its scrypt hash once at startup.
+// This lets deployments configure the password without a local Node.js install.
+const environmentPassword = process.env.ADMIN_PASSWORD || "";
+const environmentPasswordHash = environmentPassword
+  ? `scrypt$${randomBytes(16).toString("hex")}$${scryptSync(environmentPassword, Buffer.from("livecam-admin-password-salt"), 64).toString("hex")}`
+  : "";
 
 function secret() {
   const value = process.env.SESSION_SECRET || "";
@@ -62,7 +68,7 @@ export function adminStatus(req: Request, res: Response) {
 export function adminLogin(req: Request, res: Response) {
   res.setHeader("Cache-Control", "no-store");
   const username = process.env.ADMIN_USERNAME || "";
-  const passwordHash = process.env.ADMIN_PASSWORD_HASH || "";
+  const passwordHash = process.env.ADMIN_PASSWORD_HASH || environmentPasswordHash;
   if (!username || !passwordHash || (process.env.SESSION_SECRET || "").length < 32) {
     return res.status(503).json({ error: "admin_auth_not_configured" });
   }
