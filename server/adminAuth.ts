@@ -7,8 +7,9 @@ const attempts = new Map<string, { count: number; windowStart: number; blockedUn
 // When ADMIN_PASSWORD is supplied, derive its scrypt hash once at startup.
 // This lets deployments configure the password without a local Node.js install.
 const environmentPassword = process.env.ADMIN_PASSWORD || "";
+const environmentPasswordSalt = environmentPassword ? randomBytes(16).toString("hex") : "";
 const environmentPasswordHash = environmentPassword
-  ? `scrypt$${randomBytes(16).toString("hex")}$${scryptSync(environmentPassword, Buffer.from("livecam-admin-password-salt"), 64).toString("hex")}`
+  ? `scrypt$${environmentPasswordSalt}$${scryptSync(environmentPassword, environmentPasswordSalt, 64).toString("hex")}`
   : "";
 
 function secret() {
