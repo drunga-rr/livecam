@@ -62,7 +62,7 @@ export default function Broadcast() {
     const localStream = streamRef.current;
     if (!currentRoom || !localStream) return;
     stopPeer(viewerId);
-    const peer = new RTCPeerConnection({ iceServers: await getIceServers() });
+    const peer = new RTCPeerConnection({ iceServers: await getIceServers(currentRoom.roomId, participantIdRef.current) });
     peersRef.current.set(viewerId, peer);
     localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
     peer.onicecandidate = event => { if (event.candidate) void sendCandidate(viewerId, event.candidate); };

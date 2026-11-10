@@ -17,20 +17,16 @@ export type LiveRoomState = {
   viewerCount: number;
 };
 
-const fallbackIceServers: RTCIceServer[] = [{ urls: "stun:stun.cloudflare.com:3478" }];
-let iceServersPromise: Promise<RTCIceServer[]> | null = null;
-
-export function getIceServers() {
-  if (!iceServersPromise) {
-    iceServersPromise = fetch("/api/live/ice-servers", { cache: "no-store" })
-      .then(async response => {
-        if (!response.ok) throw new Error("ice_config_failed");
-        const payload = await response.json() as { iceServers?: RTCIceServer[] };
-        return payload.iceServers?.length ? payload.iceServers : fallbackIceServers;
-      })
-      .catch(() => fallbackIceServers);
+export async function getIceServers(roomId: string, participantId: string) {
+  const query = new URLSearchParams({ roomId, participantId });
+  const response = await fetch(`/api/live/ice-servers?${query.toString()}`, { cache: "no-store" });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(typeof payload.error === "string" ? payload.error : "ice_config_failed");
   }
-  return iceServersPromise;
+  const payload = await response.json() as { iceServers?: RTCIceServer[] };
+  if (!payload.iceServers?.length) throw new Error("ice_config_failed");
+  return payload.iceServers;
 }
 
 function makeId(prefix: string) {

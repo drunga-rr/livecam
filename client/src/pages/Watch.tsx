@@ -32,7 +32,7 @@ export default function Watch() {
         setRoom(joined);
         setStatus(joined.status);
 
-        const peer = new RTCPeerConnection({ iceServers: await getIceServers() });
+        const peer = new RTCPeerConnection({ iceServers: await getIceServers(roomId, participantIdRef.current) });
         peerRef.current = peer;
         peer.ontrack = event => {
           const [remoteStream] = event.streams;
