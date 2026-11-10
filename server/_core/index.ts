@@ -17,6 +17,7 @@ async function startServer() {
   const server = createServer(app);
 
   app.disable("x-powered-by");
+  app.set("trust proxy", 1);
   app.use(express.json({ limit: "512kb" }));
 
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));

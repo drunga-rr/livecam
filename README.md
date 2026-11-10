@@ -60,3 +60,12 @@ Não há um relay TURN próprio incluído nesta versão. Serviços TURN gratuito
 
 - `GET /api/health` retorna `{ "status": "ok" }`.
 - `GET /api/live/ice-servers` retorna a configuração ICE pública usada pelos navegadores.
+
+
+## TURN (conexões entre redes diferentes)
+
+O LiveCam solicita credenciais temporárias ao Turnix pelo backend. Configure `TURNIX_API_TOKEN` nas variáveis de ambiente do serviço no Render. **Nunca coloque o token no código do navegador, no GitHub ou em mensagens.**
+
+O endpoint `/api/live/ice-servers` exige `roomId` e `participantId` de uma pessoa que já entrou na sala. O servidor envia o IP público do visitante ao Turnix para seleção regional e devolve somente os dados ICE temporários ao navegador.
+
+Se o Turnix responder HTTP 429, a franquia/limite de uso foi atingida. Se responder 401, confira o token configurado no Render.

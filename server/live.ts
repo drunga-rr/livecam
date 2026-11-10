@@ -77,16 +77,59 @@ function sendJson(res: Response, status: number, payload: unknown) {
   res.status(status).json(payload);
 }
 
-export function getIceServers(_req: Request, res: Response) {
-  const turnUrls = (process.env.TURN_URLS ?? process.env.TURN_URL ?? "")
-    .split(",")
-    .map(url => url.trim())
-    .filter(Boolean);
-  const iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }> = [{ urls: DEFAULT_STUN_URL }];
-  if (turnUrls.length > 0 && process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL) {
-    iceServers.push({ urls: turnUrls, username: process.env.TURN_USERNAME, credential: process.env.TURN_CREDENTIAL });
+export async function getIceServers(req: Request, res: Response) {
+  const apiToken = process.env.TURNIX_API_TOKEN;
+  if (!apiToken) {
+    console.error("[TURN] TURNIX_API_TOKEN is not configured.");
+    return sendJson(res, 503, { error: "turn_credentials_unavailable" });
   }
-  sendJson(res, 200, { iceServers });
+
+  // Only participants already admitted to a live room may request relay credentials.
+  const roomId = typeof req.query.roomId === "string" ? req.query.roomId : "";
+  const participantId = typeof req.query.participantId === "string" ? req.query.participantId : "";
+  const room = getRoom(roomId);
+  const participant = room?.participants.get(participantId);
+  if (!room || !participant || room.status === "ended") {
+    return sendJson(res, 403, { error: "participant_unavailable" });
+  }
+
+  try {
+    const clientIp = (req.ip || "").replace(/^::ffff:/, "");
+    const response = await fetch("https://turnix.io/api/v1/credentials/ice", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiToken}`,
+        "Content-Type": "application/json",
+        ...(clientIp ? { "X-TURN-CLIENT-IP": clientIp } : {}),
+      },
+      body: JSON.stringify({
+        ttl: 3600,
+        room: roomId,
+        initiator_client: participantId,
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      // Never log response headers or the API token.
+      if (response.status === 401) console.error("[TURN] Turnix rejected TURNIX_API_TOKEN; check the Render environment variable.");
+      else if (response.status === 429) console.warn("[TURN] Turnix usage limit reached.");
+      else console.error(`[TURN] Turnix credentials request failed with HTTP ${response.status}.`);
+      return sendJson(res, response.status === 429 ? 503 : 502, {
+        error: response.status === 429 ? "turn_usage_limit_reached" : "turn_credentials_unavailable",
+      });
+    }
+
+    const payload = await response.json() as { iceServers?: unknown[]; expiresAt?: string };
+    if (!Array.isArray(payload.iceServers) || payload.iceServers.length === 0) {
+      console.error("[TURN] Turnix returned an invalid ICE server response.");
+      return sendJson(res, 502, { error: "turn_credentials_unavailable" });
+    }
+    return sendJson(res, 200, { iceServers: payload.iceServers, expiresAt: payload.expiresAt });
+  } catch (error) {
+    console.error("[TURN] Could not obtain ICE credentials:", error instanceof Error ? error.name : "unknown_error");
+    return sendJson(res, 502, { error: "turn_credentials_unavailable" });
+  }
 }
 
 function getBody(req: Request) {
