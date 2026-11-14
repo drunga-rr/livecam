@@ -94,3 +94,7 @@ node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
 ```
 
 Cole somente os valores gerados nos campos correspondentes do Render e faça novo deploy. Não adicione essas credenciais ao repositório GitHub. O cookie de sessão é HttpOnly, Secure em produção e expira em sete dias. Após oito tentativas inválidas no mesmo IP, o login fica bloqueado por 15 minutos.
+
+## Chat ao vivo
+
+O chat é integrado às salas em memória do LiveCam. O espectador escolhe um nome/apelido (até 24 caracteres) antes de entrar; transmissor e espectadores podem enviar mensagens de até 500 caracteres. As mensagens são mantidas somente enquanto a sala existir (até 200 mensagens recentes por sala) e são removidas quando a sala é encerrada ou expira. O chat usa as mesmas rotas de polling da sala, sem serviço externo adicional.
