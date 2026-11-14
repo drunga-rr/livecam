@@ -236,3 +236,20 @@ button:disabled { cursor: not-allowed; }
   .home-footer { gap: 13px; font-size: 8px; }
   .footer-secure { width: 100%; }
 }
+
+/* Live room chat */
+.chat-panel { margin-top: 24px; border: 1px solid var(--line); background: rgba(255,255,255,.32); padding: 17px; }
+.chat-panel h2 { margin: 0 0 13px; font-size: 18px; }
+.chat-messages { display: flex; flex-direction: column; gap: 10px; min-height: 110px; max-height: 260px; overflow-y: auto; padding: 12px; background: rgba(16,42,67,.045); }
+.chat-message { display: grid; gap: 3px; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.chat-message strong { color: var(--red-dark); font-size: 11px; }
+.chat-empty { margin: auto; color: var(--ink-soft); font-size: 12px; }
+.chat-form { display: flex; gap: 8px; margin-top: 10px; }
+.chat-form input, .name-gate input { min-width: 0; flex: 1; height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 2px; background: white; color: var(--ink); font: inherit; font-size: 13px; }
+.chat-form button { flex: 0 0 auto; border-radius: 2px; }
+.name-gate { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(16,42,67,.82); }
+.name-gate form { display: grid; gap: 13px; width: min(100%, 390px); padding: 26px; background: var(--paper); }
+.name-gate h2 { margin: 0; font-size: 25px; }
+.name-gate p { margin: 0 0 4px; color: var(--ink-soft); font-size: 13px; }
+.name-gate button { min-height: 42px; border: 0; background: var(--red); color: white; cursor: pointer; font: inherit; }
+@media (max-width: 560px) { .chat-form { flex-direction: column; } .chat-form button { width: 100%; } }

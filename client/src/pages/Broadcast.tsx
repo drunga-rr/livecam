@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, Check, Clipboard, Copy, ExternalLink, Mic, MicOff, Radio, RotateCcw, SwitchCamera, Video, VideoOff, Wifi, X } from "lucide-react";
+import { AlertCircle, Check, Clipboard, Copy, ExternalLink, Mic, MicOff, Radio, RotateCcw, SwitchCamera, Video, VideoOff, Wifi, X, Send } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { createParticipantId, createRoom, getIceServers, leaveRoom, markRoomReady, pollEvents, sendSignal, type LiveRoomState, type LiveStatus } from "@/lib/live";
+import { createParticipantId, createRoom, getIceServers, leaveRoom, markRoomReady, pollEvents, sendSignal, postChatMessage, type ChatMessage, type LiveRoomState, type LiveStatus } from "@/lib/live";
 
 type LocalStatus = LiveStatus | "idle" | "connecting" | "error";
 
@@ -31,6 +31,7 @@ export default function Broadcast() {
   const participantIdRef = useRef(createParticipantId("b"));
   const broadcasterTokenRef = useRef("");
   const cursorRef = useRef(0);
+  const chatCursorRef = useRef(0);
   const pollTimerRef = useRef<number | null>(null);
   const pollingRef = useRef(false);
   const peersRef = useRef(new Map<string, RTCPeerConnection>());
@@ -43,6 +44,8 @@ export default function Broadcast() {
   const [micEnabled, setMicEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
+  const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [chatText, setChatText] = useState("");
 
   const shareUrl = room ? `${window.location.origin}/watch/${room.roomId}` : "";
 
@@ -79,8 +82,10 @@ export default function Broadcast() {
     if (!currentRoom || pollingRef.current) return;
     pollingRef.current = true;
     try {
-      const result = await pollEvents(currentRoom.roomId, participantIdRef.current, cursorRef.current, broadcasterTokenRef.current);
+      const result = await pollEvents(currentRoom.roomId, participantIdRef.current, cursorRef.current, broadcasterTokenRef.current, chatCursorRef.current);
       cursorRef.current = result.cursor;
+      chatCursorRef.current = result.chatCursor;
+      if (result.chatMessages.length) setChat(current => [...current, ...result.chatMessages].slice(-200));
       const nextRoom = { ...currentRoom, ...result };
       roomRef.current = nextRoom;
       setRoom(nextRoom);
@@ -169,6 +174,16 @@ export default function Broadcast() {
     setStatus("ended");
     setMessage("A transmissão terminou. Nenhum vídeo foi gravado.");
   }, []);
+
+  const submitChat = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const text = chatText.trim();
+    if (!text || !roomRef.current) return;
+    try {
+      await postChatMessage(roomRef.current.roomId, participantIdRef.current, text, broadcasterTokenRef.current);
+      setChatText("");
+    } catch { setError("Não foi possível enviar a mensagem no chat."); }
+  };
 
   const toggleMic = () => {
     const next = !micEnabled;
@@ -275,6 +290,7 @@ export default function Broadcast() {
             {status === "ended" ? <Button className="button button-primary" onClick={() => { roomRef.current = null; setRoom(null); setStatus("idle"); setMessage("Prepare uma nova transmissão quando quiser."); }}><RotateCcw size={18} /> Nova transmissão</Button> : status === "live" || status === "connecting" ? <Button variant="destructive" className="button button-danger" onClick={stopLive}><span className="stop-square" /> Encerrar live</Button> : <Button className="button button-primary" onClick={stream ? startLive : requestCamera}>{stream ? <><Radio size={18} /> Iniciar live</> : <><CameraIcon /> Ativar câmera</>}</Button>}
           </div>
           <p className="helper-line"><Wifi size={14} /> {message}</p>
+          {room && <section className="chat-panel broadcast-chat"><h2>Chat da transmissão</h2><div className="chat-messages">{chat.map(item => <div className="chat-message" key={item.id}><strong>{item.displayName}</strong><span>{item.text}</span></div>)}{chat.length === 0 && <p className="chat-empty">As mensagens dos espectadores aparecerão aqui.</p>}</div><form className="chat-form" onSubmit={submitChat}><input value={chatText} onChange={event => setChatText(event.target.value.slice(0, 500))} placeholder="Escreva para os espectadores..." maxLength={500} disabled={status !== "live"} /><Button type="submit" disabled={!chatText.trim() || status !== "live"}><Send size={16} /> Enviar</Button></form></section>}
         </section>
 
         <aside className="broadcast-aside">

@@ -8,6 +8,7 @@ export type LiveMessage = {
   type: SignalType;
   data: RTCSessionDescriptionInit | RTCIceCandidateInit | { kind: "viewer-joined"; viewerId: string };
 };
+export type ChatMessage = { id: number; participantId: string; displayName: string; text: string; createdAt: number };
 
 export type LiveRoomState = {
   roomId: string;
@@ -57,10 +58,10 @@ export async function createRoom(broadcasterId: string) {
   });
 }
 
-export async function joinRoom(roomId: string, participantId: string) {
+export async function joinRoom(roomId: string, participantId: string, displayName: string) {
   return request<LiveRoomState & { participantId: string }>(`/api/live/rooms/${roomId}/join`, {
     method: "POST",
-    body: JSON.stringify({ participantId }),
+    body: JSON.stringify({ participantId, displayName }),
   });
 }
 
@@ -78,11 +79,18 @@ export async function sendSignal(roomId: string, from: string, to: string, type:
   });
 }
 
-export async function pollEvents(roomId: string, participantId: string, after: number, broadcasterToken?: string) {
+export async function pollEvents(roomId: string, participantId: string, after: number, broadcasterToken?: string, chatAfter = 0) {
   const tokenQuery = broadcasterToken ? `&token=${encodeURIComponent(broadcasterToken)}` : "";
-  return request<LiveRoomState & { messages: LiveMessage[]; cursor: number }>(
-    `/api/live/rooms/${roomId}/events?participantId=${encodeURIComponent(participantId)}&after=${after}${tokenQuery}`,
+  return request<LiveRoomState & { messages: LiveMessage[]; cursor: number; chatMessages: ChatMessage[]; chatCursor: number }>(
+    `/api/live/rooms/${roomId}/events?participantId=${encodeURIComponent(participantId)}&after=${after}&chatAfter=${chatAfter}${tokenQuery}`,
   );
+}
+
+
+export async function postChatMessage(roomId: string, participantId: string, text: string, broadcasterToken?: string) {
+  return request<{ message: ChatMessage }>(`/api/live/rooms/${roomId}/chat`, {
+    method: "POST", body: JSON.stringify({ participantId, text, broadcasterToken }),
+  });
 }
 
 export async function leaveRoom(roomId: string, participantId: string, broadcasterToken?: string) {

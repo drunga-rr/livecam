@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, Maximize, Radio, Volume2, VolumeX, Wifi, X } from "lucide-react";
+import { AlertCircle, Maximize, Radio, Volume2, VolumeX, Wifi, X, Send } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
-import { createParticipantId, getIceServers, joinRoom, leaveRoom, pollEvents, sendSignal, type LiveRoomState, type LiveStatus } from "@/lib/live";
+import { createParticipantId, getIceServers, joinRoom, leaveRoom, pollEvents, sendSignal, postChatMessage, type ChatMessage, type LiveRoomState, type LiveStatus } from "@/lib/live";
 
 export default function Watch() {
   const { roomId = "" } = useParams<{ roomId: string }>();
   const videoRef = useRef<HTMLVideoElement>(null);
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const cursorRef = useRef(0);
+  const chatCursorRef = useRef(0);
   const participantIdRef = useRef(createParticipantId("v"));
   const pollTimerRef = useRef<number | null>(null);
   const pollingRef = useRef(false);
@@ -20,19 +21,27 @@ export default function Watch() {
   const [muted, setMuted] = useState(true);
   const [needsPlay, setNeedsPlay] = useState(false);
   const [error, setError] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [joined, setJoined] = useState(false);
+  const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [chatText, setChatText] = useState("");
 
   useEffect(() => {
     let active = true;
 
     const connect = async () => {
       try {
-        const joined = await joinRoom(roomId, participantIdRef.current);
+        const joinedRoom = await joinRoom(roomId, participantIdRef.current, displayName.trim());
         if (!active) return;
-        roomRef.current = joined;
-        setRoom(joined);
-        setStatus(joined.status);
+        roomRef.current = joinedRoom;
+        setRoom(joinedRoom);
+        setStatus(joinedRoom.status);
+        setJoined(true);
 
-        const peer = new RTCPeerConnection({ iceServers: await getIceServers(roomId, participantIdRef.current) });
+        let iceServers: RTCIceServer[] = [{ urls: "stun:stun.cloudflare.com:3478" }];
+        try { iceServers = await getIceServers(roomId, participantIdRef.current); }
+        catch { setError("Chat conectado. O vídeo ainda não conseguiu obter as credenciais de conexão."); }
+        const peer = new RTCPeerConnection({ iceServers });
         peerRef.current = peer;
         peer.ontrack = event => {
           const [remoteStream] = event.streams;
@@ -57,8 +66,10 @@ export default function Watch() {
           if (!active || pollingRef.current) return;
           pollingRef.current = true;
           try {
-            const result = await pollEvents(roomId, participantIdRef.current, cursorRef.current);
+            const result = await pollEvents(roomId, participantIdRef.current, cursorRef.current, undefined, chatCursorRef.current);
             cursorRef.current = result.cursor;
+            chatCursorRef.current = result.chatCursor;
+            if (result.chatMessages.length) setChat(current => [...current, ...result.chatMessages].slice(-200));
             roomRef.current = result;
             setRoom(result);
             if (!hasVideoRef.current) setStatus(result.status);
@@ -90,14 +101,24 @@ export default function Watch() {
       }
     };
 
-    void connect();
+    if (displayName.trim()) void connect();
     return () => {
       active = false;
       if (pollTimerRef.current) window.clearInterval(pollTimerRef.current);
       peerRef.current?.close();
       if (roomRef.current) void leaveRoom(roomId, participantIdRef.current);
     };
-  }, [roomId]);
+  }, [roomId, displayName]);
+
+  const submitChat = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const text = chatText.trim();
+    if (!text) return;
+    try {
+      await postChatMessage(roomId, participantIdRef.current, text);
+      setChatText("");
+    } catch { setError("Não foi possível enviar a mensagem. Verifique sua conexão."); }
+  };
 
   const toggleMute = () => {
     const next = !muted;
@@ -119,6 +140,7 @@ export default function Watch() {
   return (
     <main className="app-shell viewer-shell">
       <header className="app-topbar"><Link href="/" className="wordmark"><span className="wordmark-live">LIVE</span><span className="wordmark-slash">/</span>CAM</Link><span className="viewer-header-label"><span className="status-chip-dot" /> transmissão pública</span></header>
+      {!displayName.trim() && <div className="name-gate"><form onSubmit={event => { event.preventDefault(); const input = event.currentTarget.querySelector("input") as HTMLInputElement; const name = input.value.trim(); if (name) setDisplayName(name); }}><h2>Antes de entrar</h2><p>Escolha como seu nome aparecerá no chat.</p><input placeholder="Seu nome ou apelido" maxLength={24} required /><button type="submit">Entrar na transmissão</button></form></div>}
       <div className="viewer-layout">
         <section className="viewer-main">
           <div className="viewer-heading"><div><p className="eyebrow"><Radio size={14} /> livecam · sala {roomId.slice(0, 6)}</p><h1>Você está assistindo.</h1></div><span className={`status-chip status-${status}`}><span className="status-chip-dot" /> {statusLabel}</span></div>
@@ -132,6 +154,7 @@ export default function Watch() {
           </div>
           {error && <div className="inline-alert"><AlertCircle size={18} /><span>{error}</span><button aria-label="Fechar mensagem" onClick={() => setError("")}><X size={16} /></button></div>}
           <p className="helper-line"><Wifi size={14} /> {status === "live" ? (muted ? "Toque no ícone de som para ouvir. O áudio começa desligado para evitar microfonia." : "Conexão direta com o transmissor.") : "A sala é pública por link e não exige login."}</p>
+          <section className="chat-panel"><h2>Chat ao vivo</h2><div className="chat-messages">{chat.map(item => <div className="chat-message" key={item.id}><strong>{item.displayName}</strong><span>{item.text}</span></div>)}{chat.length === 0 && <p className="chat-empty">As mensagens aparecerão aqui.</p>}</div><form className="chat-form" onSubmit={submitChat}><input value={chatText} onChange={event => setChatText(event.target.value.slice(0, 500))} placeholder="Escreva uma mensagem..." maxLength={500} disabled={!joined} /><Button type="submit" disabled={!chatText.trim() || !joined}><Send size={16} /> Enviar</Button></form></section>
         </section>
         <aside className="viewer-aside"><div className="aside-block"><p className="eyebrow">sobre esta live</p><h2>Um sinal, ao vivo.</h2><p className="aside-description">Você está vendo uma transmissão em tempo real. Não há gravação, replay ou arquivo depois que a sala termina.</p></div><div className="aside-divider" /><div className="aside-block viewer-facts"><div><span className="metric-label">estado</span><strong>{statusLabel}</strong></div><div><span className="metric-label">público</span><strong>{room?.viewerCount ?? 0} {room?.viewerCount === 1 ? "pessoa" : "pessoas"}</strong></div></div><div className="aside-footnote"><span className="shield-mark">✓</span><span>LiveCam conecta você ao vídeo sem pedir conta ou dados pessoais.</span></div></aside>
       </div>
