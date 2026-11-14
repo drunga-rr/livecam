@@ -11,8 +11,10 @@ type Role = "broadcaster" | "viewer";
 type Participant = {
   id: string;
   role: Role;
+  displayName: string;
   lastSeen: number;
 };
+type ChatMessage = { id: number; participantId: string; displayName: string; text: string; createdAt: number };
 
 type SignalMessage = {
   seq: number;
@@ -33,6 +35,8 @@ type Room = {
   nextSeq: number;
   participants: Map<string, Participant>;
   messages: SignalMessage[];
+  chatMessages: ChatMessage[];
+  nextChatId: number;
 };
 
 const rooms = new Map<string, Room>();
@@ -175,8 +179,10 @@ export function createRoom(req: Request, res: Response) {
     createdAt: timestamp,
     lastActivity: timestamp,
     nextSeq: 1,
-    participants: new Map([[broadcasterId, { id: broadcasterId, role: "broadcaster", lastSeen: timestamp }]]),
+    participants: new Map([[broadcasterId, { id: broadcasterId, role: "broadcaster", displayName: "Transmissor", lastSeen: timestamp }]]),
     messages: [],
+    chatMessages: [],
+    nextChatId: 1,
   };
   rooms.set(roomId, room);
   sendJson(res, 201, { ...roomView(room), broadcasterToken: room.broadcasterToken });
@@ -194,7 +200,9 @@ export function joinRoom(req: Request, res: Response) {
     return sendJson(res, 429, { error: "viewer_limit_reached", limit: MAX_VIEWERS_PER_ROOM });
   }
 
-  room.participants.set(participantId, { id: participantId, role: "viewer", lastSeen: now() });
+  const displayName = typeof body.displayName === "string" ? body.displayName.trim().replace(/[<>]/g, "").slice(0, 24) : "";
+  if (!displayName) return sendJson(res, 400, { error: "display_name_required" });
+  room.participants.set(participantId, { id: participantId, role: "viewer", displayName, lastSeen: now() });
   room.lastActivity = now();
   enqueue(room, { to: room.broadcasterId, from: participantId, type: "offer", data: { kind: "viewer-joined", viewerId: participantId } });
   sendJson(res, 200, { participantId, ...roomView(room) });
@@ -258,7 +266,34 @@ export function getEvents(req: Request, res: Response) {
 
   const messages = room.messages.filter(message => message.to === participantId && message.seq > after);
   const nextCursor = messages.length > 0 ? messages[messages.length - 1].seq : after;
-  sendJson(res, 200, { messages, cursor: nextCursor, ...roomView(room) });
+  const chatAfter = Number(req.query.chatAfter ?? 0);
+  const chatMessages = room.chatMessages.filter(message => message.id > chatAfter);
+  const chatCursor = chatMessages.length ? chatMessages[chatMessages.length - 1].id : chatAfter;
+  sendJson(res, 200, { messages, cursor: nextCursor, chatMessages, chatCursor, ...roomView(room) });
+}
+
+export function postChatMessage(req: Request, res: Response) {
+  const room = getRoom(req.params.roomId);
+  if (!room || room.status === "ended") return sendJson(res, 404, { error: "room_unavailable" });
+  const body = getBody(req);
+  const participantId = typeof body.participantId === "string" ? body.participantId : "";
+  const participant = touch(room, participantId);
+  if (!participant) return sendJson(res, 403, { error: "participant_unavailable" });
+  if (participant.role === "broadcaster" && body.broadcasterToken !== room.broadcasterToken) {
+    return sendJson(res, 403, { error: "not_broadcaster" });
+  }
+  const text = typeof body.text === "string" ? body.text.trim().slice(0, 500) : "";
+  if (!text) return sendJson(res, 400, { error: "empty_message" });
+  const lastMessage = [...room.chatMessages].reverse().find(item => item.participantId === participantId);
+  if (lastMessage && now() - lastMessage.createdAt < 700) return sendJson(res, 429, { error: "chat_rate_limited" });
+  const message: ChatMessage = {
+    id: room.nextChatId++, participantId,
+    displayName: participant.displayName,
+    text, createdAt: now(),
+  };
+  room.chatMessages.push(message);
+  if (room.chatMessages.length > 200) room.chatMessages.splice(0, room.chatMessages.length - 200);
+  sendJson(res, 201, { message });
 }
 
 export function leaveRoom(req: Request, res: Response) {

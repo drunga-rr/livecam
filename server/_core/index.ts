@@ -9,6 +9,7 @@ import {
   getIceServers,
   joinRoom,
   leaveRoom,
+  postChatMessage,
   setReady,
   signalRoom,
 } from "../live";
@@ -31,6 +32,7 @@ async function startServer() {
   app.post("/api/live/rooms/:roomId/ready", setReady);
   app.post("/api/live/rooms/:roomId/signal", signalRoom);
   app.get("/api/live/rooms/:roomId/events", getEvents);
+  app.post("/api/live/rooms/:roomId/chat", postChatMessage);
   app.post("/api/live/rooms/:roomId/leave", leaveRoom);
 
   if (process.env.NODE_ENV === "development") {
