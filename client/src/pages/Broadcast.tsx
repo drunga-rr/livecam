@@ -46,6 +46,13 @@ export default function Broadcast() {
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [chatText, setChatText] = useState("");
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
+
+  // Keep the newest chat message visible as messages arrive.
+  useEffect(() => {
+    const container = chatMessagesRef.current;
+    if (container) container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+  }, [chat]);
 
   const shareUrl = room ? `${window.location.origin}/watch/${room.roomId}` : "";
 
@@ -290,7 +297,7 @@ export default function Broadcast() {
             {status === "ended" ? <Button className="button button-primary" onClick={() => { roomRef.current = null; setRoom(null); setStatus("idle"); setMessage("Prepare uma nova transmissão quando quiser."); }}><RotateCcw size={18} /> Nova transmissão</Button> : status === "live" || status === "connecting" ? <Button variant="destructive" className="button button-danger" onClick={stopLive}><span className="stop-square" /> Encerrar live</Button> : <Button className="button button-primary" onClick={stream ? startLive : requestCamera}>{stream ? <><Radio size={18} /> Iniciar live</> : <><CameraIcon /> Ativar câmera</>}</Button>}
           </div>
           <p className="helper-line"><Wifi size={14} /> {message}</p>
-          {room && <section className="chat-panel broadcast-chat"><h2>Chat da transmissão</h2><div className="chat-messages">{chat.map(item => <div className="chat-message" key={item.id}><strong>{item.displayName}</strong><span>{item.text}</span></div>)}{chat.length === 0 && <p className="chat-empty">As mensagens dos espectadores aparecerão aqui.</p>}</div><form className="chat-form" onSubmit={submitChat}><input value={chatText} onChange={event => setChatText(event.target.value.slice(0, 500))} placeholder="Escreva para os espectadores..." maxLength={500} disabled={status !== "live"} /><Button type="submit" disabled={!chatText.trim() || status !== "live"}><Send size={16} /> Enviar</Button></form></section>}
+          {room && <section className="chat-panel broadcast-chat"><h2>Chat da transmissão</h2><div className="chat-messages" ref={chatMessagesRef}>{chat.map(item => <div className="chat-message" key={item.id}><strong>{item.displayName}</strong><span>{item.text}</span></div>)}{chat.length === 0 && <p className="chat-empty">As mensagens dos espectadores aparecerão aqui.</p>}</div><form className="chat-form" onSubmit={submitChat}><input value={chatText} onChange={event => setChatText(event.target.value.slice(0, 500))} placeholder="Escreva para os espectadores..." maxLength={500} disabled={status !== "live"} /><Button type="submit" disabled={!chatText.trim() || status !== "live"}><Send size={16} /> Enviar</Button></form></section>}
         </section>
 
         <aside className="broadcast-aside">

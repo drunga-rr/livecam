@@ -25,6 +25,13 @@ export default function Watch() {
   const [joined, setJoined] = useState(false);
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [chatText, setChatText] = useState("");
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
+
+  // Keep the newest chat message visible as messages arrive.
+  useEffect(() => {
+    const container = chatMessagesRef.current;
+    if (container) container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+  }, [chat]);
 
   useEffect(() => {
     let active = true;
@@ -154,7 +161,7 @@ export default function Watch() {
           </div>
           {error && <div className="inline-alert"><AlertCircle size={18} /><span>{error}</span><button aria-label="Fechar mensagem" onClick={() => setError("")}><X size={16} /></button></div>}
           <p className="helper-line"><Wifi size={14} /> {status === "live" ? (muted ? "Toque no ícone de som para ouvir. O áudio começa desligado para evitar microfonia." : "Conexão direta com o transmissor.") : "A sala é pública por link e não exige login."}</p>
-          <section className="chat-panel"><h2>Chat ao vivo</h2><div className="chat-messages">{chat.map(item => <div className="chat-message" key={item.id}><strong>{item.displayName}</strong><span>{item.text}</span></div>)}{chat.length === 0 && <p className="chat-empty">As mensagens aparecerão aqui.</p>}</div><form className="chat-form" onSubmit={submitChat}><input value={chatText} onChange={event => setChatText(event.target.value.slice(0, 500))} placeholder="Escreva uma mensagem..." maxLength={500} disabled={!joined} /><Button type="submit" disabled={!chatText.trim() || !joined}><Send size={16} /> Enviar</Button></form></section>
+          <section className="chat-panel"><h2>Chat ao vivo</h2><div className="chat-messages" ref={chatMessagesRef}>{chat.map(item => <div className="chat-message" key={item.id}><strong>{item.displayName}</strong><span>{item.text}</span></div>)}{chat.length === 0 && <p className="chat-empty">As mensagens aparecerão aqui.</p>}</div><form className="chat-form" onSubmit={submitChat}><input value={chatText} onChange={event => setChatText(event.target.value.slice(0, 500))} placeholder="Escreva uma mensagem..." maxLength={500} disabled={!joined} /><Button type="submit" disabled={!chatText.trim() || !joined}><Send size={16} /> Enviar</Button></form></section>
         </section>
         <aside className="viewer-aside"><div className="aside-block"><p className="eyebrow">sobre esta live</p><h2>Um sinal, ao vivo.</h2><p className="aside-description">Você está vendo uma transmissão em tempo real. Não há gravação, replay ou arquivo depois que a sala termina.</p></div><div className="aside-divider" /><div className="aside-block viewer-facts"><div><span className="metric-label">estado</span><strong>{statusLabel}</strong></div><div><span className="metric-label">público</span><strong>{room?.viewerCount ?? 0} {room?.viewerCount === 1 ? "pessoa" : "pessoas"}</strong></div></div><div className="aside-footnote"><span className="shield-mark">✓</span><span>LiveCam conecta você ao vídeo sem pedir conta ou dados pessoais.</span></div></aside>
       </div>
